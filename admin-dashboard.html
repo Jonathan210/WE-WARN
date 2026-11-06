@@ -98,7 +98,11 @@
 
     <!-- Tabs Navigation Header -->
     <div class="admin-tabs-nav animate-rise-delay-1">
-      <button class="admin-tab-btn active" data-tab="system-tab" onclick="switchAdminTab('system-tab', this)">
+      <button class="admin-tab-btn active" data-tab="broadcast-tab" onclick="switchAdminTab('broadcast-tab', this)">
+        <i data-lucide="radio" style="color:#ff7675;"></i>
+        <span>Emergency Broadcast</span>
+      </button>
+      <button class="admin-tab-btn" data-tab="system-tab" onclick="switchAdminTab('system-tab', this)">
         <i data-lucide="sliders"></i>
         <span>System Telemetry &amp; Controls</span>
       </button>
@@ -108,8 +112,138 @@
       </button>
     </div>
 
-    <!-- TAB 1: System Control & Telemetry -->
-    <div id="system-tab" class="admin-tab-content active">
+    <!-- TAB 1: Emergency Alert Broadcast System -->
+    <div id="broadcast-tab" class="admin-tab-content active">
+      <!-- Active Broadcast Banner Status -->
+      <div id="admin-active-broadcast-wrap">
+        <!-- Rendered via JS -->
+      </div>
+
+      <div class="admin-grid-two">
+        <!-- Broadcast Composer Form -->
+        <div>
+          <h2 class="admin-section-title">
+            <i data-lucide="megaphone" style="width:20px;height:20px;color:var(--red);"></i>
+            Compose &amp; Dispatch Emergency Alert
+          </h2>
+          <div class="card">
+            <!-- Preset Templates -->
+            <label class="font-sm muted" style="display:block; margin-bottom:8px; font-weight:600;">
+              ⚡ Quick-Dispatch Presets (1-Click Template Fill):
+            </label>
+            <div class="broadcast-presets-grid">
+              <button type="button" class="btn-preset" onclick="applyBroadcastPreset('critical_flash')">
+                <span class="preset-title" style="color:var(--red);">
+                  <i data-lucide="alert-octagon" style="width:14px;height:14px;"></i> Flash Flood Warning
+                </span>
+                <span class="preset-desc">Waist level depth, road impassable to all vehicles.</span>
+              </button>
+              <button type="button" class="btn-preset" onclick="applyBroadcastPreset('warning_rising')">
+                <span class="preset-title" style="color:var(--yellow);">
+                  <i data-lucide="alert-triangle" style="width:14px;height:14px;"></i> Rising Water Warning
+                </span>
+                <span class="preset-desc">Knee level depth, light vehicles not passable.</span>
+              </button>
+              <button type="button" class="btn-preset" onclick="applyBroadcastPreset('advisory_rain')">
+                <span class="preset-title" style="color:#74b9ff;">
+                  <i data-lucide="cloud-rain" style="width:14px;height:14px;"></i> Weather Advisory
+                </span>
+                <span class="preset-desc">Pre-emptive heavy rain monitoring notice.</span>
+              </button>
+              <button type="button" class="btn-preset" onclick="applyBroadcastPreset('all_clear')">
+                <span class="preset-title" style="color:var(--green);">
+                  <i data-lucide="check-circle-2" style="width:14px;height:14px;"></i> All Clear Notice
+                </span>
+                <span class="preset-desc">Flood waters receded, road fully passable.</span>
+              </button>
+            </div>
+
+            <form id="emergency-broadcast-form" onsubmit="handleDispatchAlertSubmit(event)" style="display:flex; flex-direction:column; gap:14px;">
+              <!-- Severity Choice -->
+              <div>
+                <label for="broadcast-severity" class="font-sm muted" style="display:block; margin-bottom:6px; font-weight:600;">Alert Severity Level:</label>
+                <select id="broadcast-severity" class="form-select" style="width:100%;">
+                  <option value="critical">🚨 Critical / Danger (Emergency Siren + Red Banner)</option>
+                  <option value="warning">⚠️ Warning / Alert (Attention Chime + Yellow Banner)</option>
+                  <option value="advisory">ℹ️ Advisory / Public Info (Chime + Blue Banner)</option>
+                </select>
+              </div>
+
+              <!-- Alert Headline -->
+              <div>
+                <label for="broadcast-title" class="font-sm muted" style="display:block; margin-bottom:6px; font-weight:600;">Alert Headline / Title:</label>
+                <input type="text" id="broadcast-title" class="form-input" style="width:100%;" placeholder="e.g. FLASH FLOOD ALERT: SM SUCAT NOT PASSABLE" required>
+              </div>
+
+              <!-- Monitored Location Target -->
+              <div>
+                <label class="font-sm muted" style="display:block; margin-bottom:6px; font-weight:600;">Target Monitored Station:</label>
+                <input type="text" class="form-input" value="San Dionisio &mdash; Dr. A. Santos Ave. infront of SM Sucat" readonly style="width:100%; opacity:0.85; background:rgba(0,0,0,0.3); cursor:not-allowed;">
+              </div>
+
+              <!-- Message Text -->
+              <div>
+                <label for="broadcast-message" class="font-sm muted" style="display:block; margin-bottom:6px; font-weight:600;">Public Advisory &amp; Action Instructions:</label>
+                <textarea id="broadcast-message" class="form-input" rows="4" style="width:100%; resize:vertical;" placeholder="State water elevation, road passability, and detour instructions..." required></textarea>
+              </div>
+
+              <!-- Audio Alarm Checkbox -->
+              <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:6px; border:1px solid var(--line);">
+                <input type="checkbox" id="broadcast-sound" checked style="width:18px; height:18px; accent-color:var(--red); cursor:pointer;">
+                <label for="broadcast-sound" style="font-size:0.85rem; cursor:pointer;">
+                  <strong>Sound audio alarm / siren</strong> on all connected user devices &amp; browsers
+                </label>
+              </div>
+
+              <!-- Action Buttons -->
+              <div style="display:flex; gap:10px; margin-top:4px;">
+                <button type="submit" class="btn btn--danger" style="flex:1; padding:12px 18px; font-size:0.95rem; font-weight:700;">
+                  <i data-lucide="radio" style="width:18px;height:18px;"></i>
+                  <span>Broadcast Alert to All Users</span>
+                </button>
+                <button type="button" class="btn btn--outline" onclick="previewComposedAlert()" title="Preview how this appears to users">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Broadcast History & Telemetry Reference -->
+        <div>
+          <h2 class="admin-section-title">
+            <i data-lucide="history" style="width:20px;height:20px;color:var(--accent);"></i>
+            Broadcast Dispatch Log &amp; Reference
+          </h2>
+          <div class="card" style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <span class="mono muted font-sm">Recent Emergency Broadcasts</span>
+              <button class="btn btn--sm btn--outline" onclick="renderAdminBroadcastStatus()">
+                <i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> Refresh
+              </button>
+            </div>
+            <div id="admin-broadcast-history-list" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; padding-right:4px;">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <div class="card" style="background:rgba(245, 166, 35, 0.04); border-color:rgba(245, 166, 35, 0.2);">
+            <div style="display:flex; gap:10px; align-items:flex-start;">
+              <i data-lucide="info" style="color:var(--accent); width:20px; height:20px; flex-shrink:0; margin-top:2px;"></i>
+              <div>
+                <strong style="color:var(--accent); font-size:0.88rem;">Real-time Notification Architecture</strong>
+                <p style="margin:4px 0 0; font-size:0.8rem; color:var(--text-muted); line-height:1.5;">
+                  When you broadcast an emergency alert, an instant event is transmitted via <code>BroadcastChannel</code> and <code>localStorage</code> triggers across every open browser window and tab. Users receive visual banners, pop-up dialogs, Web Audio sirens, and desktop push notifications.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: System Control & Telemetry -->
+    <div id="system-tab" class="admin-tab-content">
       <div class="admin-grid-two">
         <!-- Sensor Hardware & Simulation Sandbox -->
         <div>
@@ -381,6 +515,183 @@
     updatePortStatus();
   }
 
+  // --- Real-Time Emergency Broadcast Controller ---
+  function renderAdminBroadcastStatus() {
+    const wrap = document.getElementById("admin-active-broadcast-wrap");
+    const historyList = document.getElementById("admin-broadcast-history-list");
+    if (!wrap) return;
+
+    const active = window.WEWARN_STORE.getActiveBroadcast();
+
+    if (active) {
+      const sev = (active.severity || "critical").toLowerCase();
+      let sevLabel = "🚨 CRITICAL DANGER";
+      if (sev === "warning") sevLabel = "⚠️ FLOOD WARNING";
+      else if (sev === "advisory") sevLabel = "ℹ️ PUBLIC ADVISORY";
+
+      wrap.innerHTML = `
+        <div class="active-broadcast-status-card is-active animate-rise">
+          <div class="active-broadcast-info">
+            <span class="active-pulse-beacon"></span>
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span class="badge badge--${sev === 'critical' ? 'red' : sev === 'warning' ? 'yellow' : 'green'}">${sevLabel}</span>
+                <span class="mono muted font-sm">Active Since: ${active.created_at}</span>
+              </div>
+              <strong style="font-size:1.05rem; color:var(--text); display:block;">${active.title}</strong>
+              <p style="margin:4px 0 0; font-size:0.82rem; color:#d1d8e0;">${active.message}</p>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn--outline btn--sm" onclick="previewCurrentBroadcast()">
+              <i data-lucide="eye" style="width:14px;height:14px;"></i> View User Modal
+            </button>
+            <button class="btn btn--danger btn--sm" onclick="cancelActiveBroadcast()">
+              <i data-lucide="x-circle" style="width:14px;height:14px;"></i> End / Clear Broadcast
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      wrap.innerHTML = `
+        <div class="active-broadcast-status-card animate-rise">
+          <div class="active-broadcast-info">
+            <span class="active-pulse-beacon beacon-green"></span>
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+                <span class="badge badge--normal">MONITORING STANDBY</span>
+                <span class="mono muted font-sm">Station: San Dionisio &bull; SM Sucat</span>
+              </div>
+              <span style="font-size:0.88rem; color:var(--text-muted);">No active emergency broadcasts. Connected user browsers are in normal telemetry reception mode.</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (historyList) {
+      const history = window.WEWARN_STORE.getBroadcastHistory();
+      if (!history || !history.length) {
+        historyList.innerHTML = `<span class="muted font-sm" style="text-align:center; padding:16px 0;">No broadcasts issued yet in this session.</span>`;
+      } else {
+        historyList.innerHTML = history.map((b) => {
+          const s = (b.severity || "critical").toLowerCase();
+          const badgeClass = s === "critical" ? "badge--red" : s === "warning" ? "badge--yellow" : "badge--normal";
+          return `
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:6px; padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+              <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                  <span class="badge ${badgeClass}" style="font-size:0.68rem; padding:2px 6px;">${s.toUpperCase()}</span>
+                  <span class="mono muted" style="font-size:0.72rem;">${b.created_at}</span>
+                </div>
+                <strong style="font-size:0.85rem; display:block; color:var(--text);">${b.title}</strong>
+                <p style="margin:2px 0 0; font-size:0.75rem; color:var(--text-muted); line-height:1.35;">${b.message}</p>
+              </div>
+              <button class="btn btn--outline btn--sm" style="padding:4px 8px; font-size:0.72rem;" onclick="prefillFromHistory(${JSON.stringify(b.title).replace(/"/g, '&quot;')}, ${JSON.stringify(b.message).replace(/"/g, '&quot;')}, '${s}')" title="Copy to Composer">
+                Re-use
+              </button>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    if (typeof lucide !== "undefined") lucide.createIcons();
+  }
+
+  function applyBroadcastPreset(key) {
+    const titleInput = document.getElementById("broadcast-title");
+    const msgInput = document.getElementById("broadcast-message");
+    const sevInput = document.getElementById("broadcast-severity");
+
+    if (key === "critical_flash") {
+      sevInput.value = "critical";
+      titleInput.value = "🚨 CRITICAL FLASH FLOOD ALERT: SM SUCAT IMPASSABLE";
+      msgInput.value = "Dr. A. Santos Ave. infront of SM Sucat is currently submerged in waist-deep water (70cm+). The road is NOT PASSABLE to all vehicles. Motorists and commuters must avoid the area immediately and take alternative detour routes via C-5 Extension or Multinational.";
+    } else if (key === "warning_rising") {
+      sevInput.value = "warning";
+      titleInput.value = "⚠️ FLOOD WARNING: RISING WATER LEVEL AT SM SUCAT";
+      msgInput.value = "Water elevation has reached knee level (35cm+) infront of SM Sucat, Dr. A. Santos Ave. The road is NOT PASSABLE to light vehicles (motorcycles, tricycles, sedans). Proceed with extreme caution or take alternate routes.";
+    } else if (key === "advisory_rain") {
+      sevInput.value = "advisory";
+      titleInput.value = "ℹ️ PRE-EMPTIVE WEATHER & FLOOD WATCH ADVISORY";
+      msgInput.value = "Continuous moderate to heavy rain reported over Barangay San Dionisio. Real-time telemetry monitoring is actively logging water elevation along Dr. A. Santos Ave. Residents and motorists are advised to stay alert.";
+    } else if (key === "all_clear") {
+      sevInput.value = "advisory";
+      titleInput.value = "🟢 ALL CLEAR: FLOOD WATERS RECEDED AT SM SUCAT";
+      msgInput.value = "Flood waters along Dr. A. Santos Ave. infront of SM Sucat have subsided to gutter/normal level. The roadway is now FULLY PASSABLE to all types of vehicles.";
+    }
+    showToast("Template pre-filled into broadcast form.", "info");
+  }
+
+  function prefillFromHistory(title, msg, sev) {
+    document.getElementById("broadcast-title").value = title;
+    document.getElementById("broadcast-message").value = msg;
+    document.getElementById("broadcast-severity").value = sev;
+    showToast("Loaded broadcast into composer.", "info");
+  }
+
+  function handleDispatchAlertSubmit(e) {
+    e.preventDefault();
+    const severity = document.getElementById("broadcast-severity").value;
+    const title = document.getElementById("broadcast-title").value.trim();
+    const message = document.getElementById("broadcast-message").value.trim();
+    const sound = document.getElementById("broadcast-sound").checked;
+
+    if (!title || !message) {
+      showToast("Please provide both an alert title and message.", "error");
+      return;
+    }
+
+    const alert = window.WEWARN_STORE.broadcastAlert({
+      severity: severity,
+      title: title,
+      message: message,
+      sound: sound
+    });
+
+    showToast("Emergency alert broadcasted to all users!", "success");
+    renderAdminBroadcastStatus();
+
+    // Scroll to top of tab to show active status card
+    window.scrollTo({ top: 120, behavior: "smooth" });
+  }
+
+  function cancelActiveBroadcast() {
+    if (!confirm("End the active broadcast and send an 'All Clear' advisory notice to all users?")) return;
+    window.WEWARN_STORE.clearActiveBroadcast("Flood advisory cleared by PCDRRMO Command. Area is now all-clear.");
+    showToast("Active broadcast cancelled. All-clear dispatched.", "info");
+    renderAdminBroadcastStatus();
+  }
+
+  function previewCurrentBroadcast() {
+    const active = window.WEWARN_STORE.getActiveBroadcast();
+    if (active && window.wewarnShowEmergencyModal) {
+      window.wewarnShowEmergencyModal(active, false);
+    } else {
+      showToast("No active broadcast to preview.", "info");
+    }
+  }
+
+  function previewComposedAlert() {
+    const severity = document.getElementById("broadcast-severity").value;
+    const title = document.getElementById("broadcast-title").value.trim() || "PREVIEW EMERGENCY ALERT";
+    const message = document.getElementById("broadcast-message").value.trim() || "Preview sample instructions for citizens and motorists.";
+
+    if (window.wewarnShowEmergencyModal) {
+      window.wewarnShowEmergencyModal({
+        id: Date.now(),
+        severity: severity,
+        title: title,
+        message: message,
+        location: "San Dionisio — Dr. A. Santos Ave. infront of SM Sucat",
+        created_by: "Admin Preview",
+        created_at: new Date().toLocaleTimeString(),
+        sound: false
+      }, false);
+    }
+  }
+
   function updatePortStatus() {
     const st = window.WEWARN_SIMULATOR.getStatus();
     const info = document.getElementById("admin-port-info");
@@ -412,11 +723,21 @@
 
     renderAdminStats();
     renderAdminSpots();
+    renderAdminBroadcastStatus();
     updatePortStatus();
 
     window.addEventListener("wewarn:data-change", () => {
       renderAdminStats();
+      renderAdminBroadcastStatus();
       updatePortStatus();
+    });
+
+    window.addEventListener("wewarn:emergency-alert", () => {
+      renderAdminBroadcastStatus();
+    });
+
+    window.addEventListener("wewarn:emergency-alert-cleared", () => {
+      renderAdminBroadcastStatus();
     });
   });
 </script>
