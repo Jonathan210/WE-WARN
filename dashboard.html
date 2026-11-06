@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Dashboard · WE-WARN</title>
+<meta name="description" content="WE-WARN Live Telemetry Dashboard — Real-time ultrasonic water level monitoring and early flood alert system.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="shortcut icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <i data-lucide="droplets"></i>
+      </span>
+      <span class="brand-text">WE<span class="brand-dash">–</span>WARN</span>
+    </a>
+    <span class="brand-tag">Water Elevation Alert &amp; Response Network</span>
+  </div>
+
+  <nav class="mainnav">
+    <a href="index.html" class="nav-item">
+      <i data-lucide="home" class="nav-icon"></i>
+      <span>Home</span>
+    </a>
+    <a href="dashboard.html" class="nav-item">
+      <i data-lucide="layout-dashboard" class="nav-icon"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="monitoring.html" class="nav-item">
+      <i data-lucide="activity" class="nav-icon"></i>
+      <span>Monitoring</span>
+    </a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="hw-chip" id="hw-chip" title="Hardware / Sensor Connection Status">
+      <span class="hw-pulse"></span>
+      <span id="hw-status-text">Checking...</span>
+    </div>
+
+    <div id="topbar-auth-slot">
+      <a href="admin-login.html" class="admin-login-link" title="Admin Login">
+        <i data-lucide="lock" class="admin-chip-icon"></i>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div id="toast-container" class="toast-container"></div>
+
+<main class="page">
+  <div class="dashboard-header">
+    <div class="dash-meta">
+      <!-- Station Info -->
+      <div class="station-selector-wrap">
+        <span class="station-label" style="font-weight:600;">📍 Dr. A. Santos Ave. infront of SM Sucat</span>
+        <span class="mono muted font-sm">Brgy. San Dionisio &bull; District 1</span>
+      </div>
+      
+      <span class="threshold-pill">Green &lt; 15.0cm &middot; Yellow &lt; 60.0cm</span>
+    </div>
+
+  </div>
+
+  <section class="hero" data-status="GREEN">
+    <div class="hero-gauge">
+      <div class="gauge" id="gauge">
+        <div class="gauge-tube">
+          <div class="gauge-zone gauge-zone--red"></div>
+          <div class="gauge-zone gauge-zone--yellow"></div>
+          <div class="gauge-zone gauge-zone--green"></div>
+          <div class="gauge-fill" id="gauge-fill"></div>
+          <div class="gauge-waterline" id="gauge-waterline"></div>
+        </div>
+        <div class="gauge-ticks">
+          <span style="bottom: 0%">0</span>
+          <span style="bottom: 16%">15</span>
+          <span style="bottom: 66%">60</span>
+          <span style="bottom: 98%">90+</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-readout">
+      <p class="eyebrow">Water Level Telemetry &middot; Dr. A. Santos Ave. infront of SM Sucat</p>
+      <div class="reading-row">
+        <h1 class="level-number" id="level-number">
+          --<span class="unit">cm</span>
+        </h1>
+        
+        <div class="status-pill" id="status-pill" data-status="GREEN">
+          <span class="status-dot"></span>
+          <span id="status-label">NORMAL</span>
+        </div>
+      </div>
+
+      <dl class="fact-grid">
+        <div class="fact-card">
+          <dt>Flood Depth Level</dt>
+          <dd id="flood-level">—</dd>
+        </div>
+        <div class="fact-card">
+          <dt>Road Passability</dt>
+          <dd id="road-status">—</dd>
+        </div>
+        <div class="fact-card">
+          <dt>Last Telemetry</dt>
+          <dd id="last-update" class="mono">—</dd>
+        </div>
+      </dl>
+
+      <div class="safety-box" id="safety-box" data-status="GREEN">
+        <div class="safety-icon" id="safety-icon">ℹ️</div>
+        <p class="safety-message" id="safety-message">
+          Water level is at ankle-to-knee depth. Road is passable for light to heavy vehicles. Drive with caution.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trend and Telemetry Section -->
+  <div class="dashboard-grid">
+    <!-- Recent Trend Sparkline -->
+    <section class="card trend-card">
+      <div class="card-head">
+        <h2 class="card-title">Recent Elevation Trend</h2>
+        <span class="card-badge" id="trend-count">Last 20 readings</span>
+      </div>
+      <div class="trend-chart-wrap">
+        <svg id="trend-svg" viewBox="0 0 500 120" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path id="trend-area" d="" fill="url(#trendGradient)"/>
+          <path id="trend-line" d="" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+          <g id="trend-points"></g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Interactive Control & Simulation Sandbox -->
+    <section class="card control-card">
+      <div class="card-head">
+        <h2 class="card-title">Prototype &amp; Testing Controls</h2>
+        <span class="card-badge">Simulation &amp; Manual Override</span>
+      </div>
+      <p class="card-desc">
+        Simulate live water levels or test specific alarm thresholds without physical water:
+      </p>
+      
+      <div class="test-buttons">
+        <button class="btn btn--sm btn--green" onclick="testReading(8)">🟢 Normal (8 cm)</button>
+        <button class="btn btn--sm btn--yellow" onclick="testReading(32)">🟡 Warning (32 cm)</button>
+        <button class="btn btn--sm btn--red" onclick="testReading(72)">🔴 Danger (72 cm)</button>
+      </div>
+
+      <div class="manual-slider-wrap">
+        <div class="slider-header">
+          <label for="manual-level-slider">Custom Depth Injection:</label>
+          <span class="mono" id="slider-val-display">25.0 cm</span>
+        </div>
+        <div class="slider-row">
+          <input type="range" id="manual-level-slider" min="0" max="90" step="0.5" value="25">
+          <button class="btn btn--primary btn--sm" onclick="testReading(parseFloat(document.getElementById('manual-level-slider').value))">
+            Inject
+          </button>
+        </div>
+      </div>
+
+      <div class="sim-toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" id="sim-toggle-chk" onchange="toggleSimulationMode(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="sim-label">Continuous Fluctuating Flood Simulation</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="legend">
+    <div class="legend-card legend-card--green">
+      <span class="legend-dot"></span>
+      <div>
+        <strong>GREEN (&lt; 15cm)</strong>
+        <p>Ankle to knee &middot; Passable with caution</p>
+      </div>
+    </div>
+    <div class="legend-card legend-card--yellow">
+      <span class="legend-dot"></span>
+      <div>
+        <strong>YELLOW (15&ndash;60cm)</strong>
+        <p>Knee to waist &middot; Not passable for light vehicles</p>
+      </div>
+    </div>
+    <div class="legend-card legend-card--red">
+      <span class="legend-dot"></span>
+      <div>
+        <strong>RED (&gt; 60cm)</strong>
+        <p>Chest and above &middot; Critical danger / Evacuate</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot-info">
+    <span><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> WE-WARN &mdash; Water Elevation Web-based Alert and Response Network</span>
+    <span class="sitefoot-sub">Automated Flood Monitoring &middot; HTML/CSS/JS Prototype &middot; San Dionisio, SM Sucat</span>
+  </div>
+  <div class="sitefoot-meta">
+    <span id="foot-clock"></span>
+  </div>
+</footer>
+
+<!-- Floating Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a href="index.html" class="m-nav-item">
+    <i data-lucide="home"></i>
+    <span>Home</span>
+  </a>
+  <a href="dashboard.html" class="m-nav-item">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dash</span>
+  </a>
+  <a href="monitoring.html" class="m-nav-item">
+    <i data-lucide="activity"></i>
+    <span>Logs</span>
+  </a>
+  <a href="admin-login.html" class="m-nav-item" id="m-nav-admin">
+    <i data-lucide="shield-check"></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- Core Scripts -->
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+
+
+</body>
+</html>
+

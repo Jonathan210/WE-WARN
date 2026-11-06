@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Control Panel · WE-WARN</title>
+<meta name="description" content="PCDRRMO Administrator Control Panel for WE-WARN Flood Monitoring Network.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="shortcut icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <i data-lucide="droplets"></i>
+      </span>
+      <span class="brand-text">WE<span class="brand-dash">–</span>WARN</span>
+    </a>
+    <span class="brand-tag">Water Elevation Alert &amp; Response Network</span>
+  </div>
+
+  <nav class="mainnav">
+    <a href="index.html" class="nav-item">
+      <i data-lucide="home" class="nav-icon"></i>
+      <span>Home</span>
+    </a>
+    <a href="dashboard.html" class="nav-item">
+      <i data-lucide="layout-dashboard" class="nav-icon"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="monitoring.html" class="nav-item">
+      <i data-lucide="activity" class="nav-icon"></i>
+      <span>Monitoring</span>
+    </a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="hw-chip" id="hw-chip" title="Hardware / Sensor Connection Status">
+      <span class="hw-pulse"></span>
+      <span id="hw-status-text">Checking...</span>
+    </div>
+
+    <div id="topbar-auth-slot">
+      <!-- Populated by app.js -->
+    </div>
+  </div>
+</header>
+
+<div id="toast-container" class="toast-container"></div>
+
+<main class="page">
+  <section class="panel animate-rise">
+    <div class="panel-header-row">
+      <div>
+        <div class="admin-badge-row">
+          <span class="admin-role-badge">
+            <i data-lucide="shield-check" style="width:14px;height:14px;"></i>
+            ADMIN PANEL
+          </span>
+          <span class="admin-user-pill">
+            <i data-lucide="user" style="width:12px;height:12px;"></i>
+            <span id="admin-user-name">PCDRRMO Admin</span>
+          </span>
+        </div>
+        <h1 class="panel-title">
+          <i data-lucide="settings" style="width:28px;height:28px;vertical-align:middle;margin-right:8px;color:var(--accent);"></i>
+          Control Center Panel
+        </h1>
+        <p class="panel-sub">Flood Monitoring Station &mdash; Dr. A. Santos Ave. infront of SM Sucat, San Dionisio</p>
+      </div>
+    </div>
+
+    <!-- Summary Stats Row -->
+    <div class="situation-stats-grid animate-rise-delay-1" style="margin-bottom: 28px;">
+      <div class="sit-stat-card sit-stat--total">
+        <span class="sit-stat-label"><i data-lucide="map-pin" style="width:14px;height:14px;"></i> Current Level</span>
+        <span class="sit-stat-num" id="admin-stat-total">--</span>
+        <span class="sit-stat-sub">Water Depth (cm)</span>
+      </div>
+      <div class="sit-stat-card sit-stat--flooded">
+        <span class="sit-stat-label"><i data-lucide="alert-triangle" style="width:14px;height:14px;"></i> Warning Status</span>
+        <span class="sit-stat-num" id="admin-stat-flooded">--</span>
+        <span class="sit-stat-sub">Live Sensor Reading</span>
+      </div>
+      <div class="sit-stat-card sit-stat--waist">
+        <span class="sit-stat-label"><i data-lucide="car" style="width:14px;height:14px;"></i> Road Passability</span>
+        <span class="sit-stat-num" id="admin-stat-impassable" style="font-size:1rem;">--</span>
+        <span class="sit-stat-sub">Current Condition</span>
+      </div>
+    </div>
+
+    <!-- Tabs Navigation Header -->
+    <div class="admin-tabs-nav animate-rise-delay-1">
+      <button class="admin-tab-btn active" data-tab="system-tab" onclick="switchAdminTab('system-tab', this)">
+        <i data-lucide="sliders"></i>
+        <span>System Telemetry &amp; Controls</span>
+      </button>
+      <button class="admin-tab-btn" data-tab="hotspots-tab" onclick="switchAdminTab('hotspots-tab', this)">
+        <i data-lucide="grid-3x3"></i>
+        <span>Station Status</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: System Control & Telemetry -->
+    <div id="system-tab" class="admin-tab-content active">
+      <div class="admin-grid-two">
+        <!-- Sensor Hardware & Simulation Sandbox -->
+        <div>
+          <h2 class="admin-section-title">
+            <i data-lucide="cpu" style="width:20px;height:20px;color:var(--accent);"></i>
+            Telemetry Sensor Simulator &amp; Testbed
+          </h2>
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; background: rgba(0,0,0,0.2); padding:12px; border-radius:6px; border:1px solid var(--line);">
+              <div>
+                <span class="mono muted font-sm">COM Port Diagnostics</span>
+                <h3 style="margin:4px 0 0; font-family:var(--font-display);" id="admin-port-info">Status: Connected</h3>
+              </div>
+              <span class="hw-pulse" id="admin-hw-pulse"></span>
+            </div>
+
+            <!-- Simulation Toggle -->
+            <div class="sim-toggle-row" style="margin-bottom: 20px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; border: 1px dashed var(--line);">
+              <label class="toggle-switch">
+                <input type="checkbox" id="admin-sim-toggle" onchange="toggleSimulationMode(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+              <div>
+                <strong>Continuous Wave Simulation Mode</strong>
+                <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-muted);">Generates continuous fluctuations mimicking a tidal rise and fall.</p>
+              </div>
+            </div>
+
+            <!-- Manual Depth Injection -->
+            <div class="manual-slider-wrap">
+              <div class="slider-header">
+                <label for="admin-level-slider">Manual Depth Injection Selector:</label>
+                <span class="mono font-bold" id="admin-slider-val">25.0 cm</span>
+              </div>
+              <div class="slider-row">
+                <input type="range" id="admin-level-slider" min="0" max="90" step="0.5" value="25"
+                       oninput="document.getElementById('admin-slider-val').textContent = parseFloat(this.value).toFixed(1) + ' cm'">
+                <button class="btn btn--primary btn--sm" onclick="injectDepthTelemetry()">
+                  Inject Value
+                </button>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                <button class="btn btn--sm btn--green" style="flex:1;" onclick="injectFastDepth(8)">🟢 Normal (8 cm)</button>
+                <button class="btn btn--sm btn--yellow" style="flex:1;" onclick="injectFastDepth(32)">🟡 Warning (32 cm)</button>
+                <button class="btn btn--sm btn--red" style="flex:1;" onclick="injectFastDepth(72)">🔴 Danger (72 cm)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Maintenance Utilities -->
+        <div>
+          <h2 class="admin-section-title">
+            <i data-lucide="database" style="width:20px;height:20px;color:var(--accent);"></i>
+            Prototype Storage Maintenance Utilities
+          </h2>
+          <div class="card">
+            <p class="card-desc">Export historical time-series logs or reset the entire prototype database back to official initial seeds.</p>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <button class="btn btn--outline" style="width:100%;" onclick="window.WEWARN_STORE.exportCsv()">
+                <i data-lucide="download" style="width:16px;height:16px;"></i> Download CSV Log (Last 1000)
+              </button>
+              <button class="btn btn--danger" style="width:100%;" onclick="confirmClearHistory()">
+                <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Clear All Readings History
+              </button>
+              <button class="btn btn--outline" style="width:100%; border-color: var(--accent); color: var(--accent);" onclick="confirmResetDefaults()">
+                <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i> Reset All Data to Prototype Defaults
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Station Status -->
+    <div id="hotspots-tab" class="admin-tab-content">
+      <div class="filter-toolbar">
+        <div class="search-wrap">
+          <input type="text" id="admin-spot-search" placeholder="Search station, barangay, or landmark..." oninput="filterAdminSpots()">
+        </div>
+        <div class="filter-tags">
+          <button class="btn-filter active" id="btn-spot-all" onclick="filterAdminSpotSeverity('ALL', this)">All</button>
+          <button class="btn-filter" onclick="filterAdminSpotSeverity('FLOODED', this)">Flooded Only</button>
+          <button class="btn-filter" onclick="filterAdminSpotSeverity('Waist Level', this)">Waist Level</button>
+          <button class="btn-filter" onclick="filterAdminSpotSeverity('Knee Level', this)">Knee Level</button>
+          <button class="btn-filter" onclick="filterAdminSpotSeverity('Gutter Level', this)">Gutter Level</button>
+        </div>
+      </div>
+
+      <div class="admin-spots-grid" id="admin-spots-list">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot-info">
+    <span><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> WE-WARN &mdash; Water Elevation Web-based Alert and Response Network</span>
+    <span class="sitefoot-sub">Automated Flood Monitoring &middot; HTML/CSS/JS Prototype &middot; San Dionisio, SM Sucat</span>
+  </div>
+  <div class="sitefoot-meta">
+    <span id="foot-clock"></span>
+  </div>
+</footer>
+
+<!-- Floating Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a href="index.html" class="m-nav-item">
+    <i data-lucide="home"></i>
+    <span>Home</span>
+  </a>
+  <a href="dashboard.html" class="m-nav-item">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dash</span>
+  </a>
+  <a href="monitoring.html" class="m-nav-item">
+    <i data-lucide="activity"></i>
+    <span>Logs</span>
+  </a>
+  <a href="admin-dashboard.html" class="m-nav-item" id="m-nav-admin">
+    <i data-lucide="shield-check"></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- Core Scripts -->
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+  let activeSpotFilter = "ALL";
+
+  function switchAdminTab(tabId, btn) {
+    document.querySelectorAll(".admin-tab-content").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".admin-tab-btn").forEach(el => el.classList.remove("active"));
+    document.getElementById(tabId).classList.add("active");
+    if (btn) btn.classList.add("active");
+    if (typeof lucide !== "undefined") lucide.createIcons();
+  }
+
+  function renderAdminStats() {
+    const reading = window.WEWARN_STORE.getLatestReading(window.WEWARN_CONFIG.LOCATION_NAME);
+
+    if (reading) {
+      document.getElementById("admin-stat-total").textContent = Number(reading.water_level).toFixed(1) + " cm";
+      document.getElementById("admin-stat-flooded").textContent = reading.warning_status;
+      document.getElementById("admin-stat-impassable").textContent = reading.road_status;
+    }
+  }
+
+  // --- TAB 1: Hotspots ---
+  function renderAdminSpots() {
+    const areas = window.WEWARN_STORE.getMonitoredAreas();
+    const list = document.getElementById("admin-spots-list");
+
+    list.innerHTML = areas.map(a => {
+      let badgeClass = "badge--normal";
+      if (a.flood_level.includes("Waist")) badgeClass = "badge--red";
+      else if (a.flood_level.includes("Knee")) badgeClass = "badge--yellow";
+      else if (a.flood_level !== "No Reported/Monitored Flooded Area") badgeClass = "badge--green";
+
+      return `
+        <div class="admin-spot-card" data-barangay="${a.barangay}" data-level="${a.flood_level}" data-text="${a.location.toLowerCase()} ${a.barangay.toLowerCase()}">
+          <div class="admin-spot-head">
+            <span class="mono muted font-sm">#${a.id} &bull; ${a.district}</span>
+            <span class="badge ${badgeClass}">${a.flood_level}</span>
+          </div>
+          <h4 style="margin: 0 0 4px; font-family: var(--font-display); font-size: 0.95rem;">${a.location}</h4>
+          <p style="margin: 0 0 12px; font-size: 0.8rem; color: var(--text-muted);">Barangay: <strong>${a.barangay}</strong></p>
+          
+          <form onsubmit="submitSpotUpdate(event, ${a.id})" style="display:flex; flex-direction:column; gap:8px; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid var(--line);">
+            <div style="display:flex; gap:6px;">
+              <select name="flood_level" class="form-select form-select--sm" style="flex:1;" onchange="suggestInlineRemarks(this.value, this.form.remarks)">
+                <option value="No Reported/Monitored Flooded Area" ${a.flood_level === 'No Reported/Monitored Flooded Area' ? 'selected' : ''}>Clear / Normal</option>
+                <option value="Gutter Level" ${a.flood_level === 'Gutter Level' ? 'selected' : ''}>Gutter Level</option>
+                <option value="Knee Level" ${a.flood_level === 'Knee Level' ? 'selected' : ''}>Knee Level</option>
+                <option value="Waist Level" ${a.flood_level === 'Waist Level' ? 'selected' : ''}>Waist Level</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input type="text" name="remarks" value="${(a.remarks || '').replace(/"/g, '&quot;')}" placeholder="Passability remarks" style="flex:1; padding: 6px; font-size: 0.8rem; background: #081620; border: 1px solid var(--line); color: var(--text); border-radius: 4px;">
+              <button type="submit" class="btn btn--outline btn--sm" style="padding: 6px 10px;" title="Save Status">
+                <i data-lucide="check" style="width:14px;height:14px;color:var(--green);"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+    }).join("");
+
+    filterAdminSpots();
+    if (typeof lucide !== "undefined") lucide.createIcons();
+  }
+
+  function filterAdminSpots() {
+    const searchVal = document.getElementById("admin-spot-search").value.toLowerCase();
+    const cards = document.querySelectorAll("#admin-spots-list .admin-spot-card");
+
+    cards.forEach(card => {
+      const matchSearch = card.dataset.text.includes(searchVal);
+      const level = card.dataset.level;
+
+      let matchFilter = true;
+      if (activeSpotFilter === "FLOODED") {
+        matchFilter = level !== "No Reported/Monitored Flooded Area";
+      } else if (activeSpotFilter !== "ALL") {
+        matchFilter = level.includes(activeSpotFilter);
+      }
+
+      card.style.display = matchSearch && matchFilter ? "block" : "none";
+    });
+  }
+
+  function filterAdminSpotSeverity(filter, btn) {
+    activeSpotFilter = filter;
+    document.querySelectorAll("#hotspots-tab .btn-filter").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    filterAdminSpots();
+  }
+
+  function suggestInlineRemarks(level, remarksInput) {
+    if (level === "Waist Level") {
+      remarksInput.value = "Not Passable to All Types of Vehicles";
+    } else if (level === "Knee Level") {
+      remarksInput.value = "Not Passable to Light Vehicles";
+    } else if (level === "Gutter Level") {
+      remarksInput.value = "Passable to All Types of Vehicles";
+    } else {
+      remarksInput.value = "Normal traffic flow";
+    }
+  }
+
+  function submitSpotUpdate(e, id) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const flood_level = fd.get("flood_level");
+    const remarks = fd.get("remarks");
+
+    const ok = window.WEWARN_STORE.updateAreaFloodStatus(id, flood_level, remarks);
+    if (ok) {
+      showToast("Hotspot status updated successfully!", "success");
+      renderAdminSpots();
+      renderAdminStats();
+    } else {
+      showToast("Error updating status", "error");
+    }
+  }
+
+  // --- TAB 3: Telemetry Controls ---
+  function injectDepthTelemetry() {
+    const val = parseFloat(document.getElementById("admin-level-slider").value);
+    window.WEWARN_SIMULATOR.injectReading(val);
+    showToast(`Injected depth: ${val.toFixed(1)} cm`, "info");
+  }
+
+  function injectFastDepth(val) {
+    document.getElementById("admin-level-slider").value = val;
+    document.getElementById("admin-slider-val").textContent = val.toFixed(1) + " cm";
+    window.WEWARN_SIMULATOR.injectReading(val);
+    showToast(`Injected depth: ${val.toFixed(1)} cm`, "info");
+  }
+
+  function toggleSimulationMode(checked) {
+    window.WEWARN_SIMULATOR.toggleSimulation(checked);
+    showToast(checked ? "Simulation mode enabled" : "Simulation mode paused", "info");
+    updatePortStatus();
+  }
+
+  function updatePortStatus() {
+    const st = window.WEWARN_SIMULATOR.getStatus();
+    const info = document.getElementById("admin-port-info");
+    if (info) info.textContent = `Status: ${st.status} (${st.port})`;
+    const simChk = document.getElementById("admin-sim-toggle");
+    if (simChk) simChk.checked = window.WEWARN_STORE.getSimulationMode();
+  }
+
+  function confirmClearHistory() {
+    if (!confirm("Are you sure you want to clear all historical water level readings?")) return;
+    window.WEWARN_STORE.clearHistory();
+    showToast("Readings history cleared.", "info");
+  }
+
+  function confirmResetDefaults() {
+    if (!confirm("Reset ALL prototype data (areas, routes, warnings, readings) to factory defaults?")) return;
+    window.WEWARN_STORE.resetToDefaults(true);
+    showToast("Prototype restored to factory defaults!", "success");
+    setTimeout(() => window.location.reload(), 500);
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const currentUser = window.WEWARN_STORE.getCurrentUser();
+    if (!currentUser) {
+      window.location.href = "admin-login.html";
+      return;
+    }
+    document.getElementById("admin-user-name").textContent = currentUser.displayName;
+
+    renderAdminStats();
+    renderAdminSpots();
+    updatePortStatus();
+
+    window.addEventListener("wewarn:data-change", () => {
+      renderAdminStats();
+      updatePortStatus();
+    });
+  });
+</script>
+</body>
+</html>
+

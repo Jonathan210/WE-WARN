@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring &amp; Telemetry Logs · WE-WARN</title>
+<meta name="description" content="WE-WARN Continuous water elevation telemetry and time-series sensor logs.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="shortcut icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <i data-lucide="droplets"></i>
+      </span>
+      <span class="brand-text">WE<span class="brand-dash">–</span>WARN</span>
+    </a>
+    <span class="brand-tag">Water Elevation Alert &amp; Response Network</span>
+  </div>
+
+  <nav class="mainnav">
+    <a href="index.html" class="nav-item">
+      <i data-lucide="home" class="nav-icon"></i>
+      <span>Home</span>
+    </a>
+    <a href="dashboard.html" class="nav-item">
+      <i data-lucide="layout-dashboard" class="nav-icon"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="monitoring.html" class="nav-item">
+      <i data-lucide="activity" class="nav-icon"></i>
+      <span>Monitoring</span>
+    </a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="hw-chip" id="hw-chip" title="Hardware / Sensor Connection Status">
+      <span class="hw-pulse"></span>
+      <span id="hw-status-text">Checking...</span>
+    </div>
+
+    <div id="topbar-auth-slot">
+      <a href="admin-login.html" class="admin-login-link" title="Admin Login">
+        <i data-lucide="lock" class="admin-chip-icon"></i>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div id="toast-container" class="toast-container"></div>
+
+<main class="page">
+  <section class="panel">
+    <div class="panel-header-row">
+      <div>
+        <h1 class="panel-title">Water-Level Monitoring Logs</h1>
+        <p class="panel-sub">Continuous time-series sensor data. Automatically streams live telemetry updates.</p>
+      </div>
+      <div class="panel-actions">
+        <button class="btn btn--outline btn--sm" id="export-csv-btn" onclick="window.WEWARN_STORE.exportCsv()">
+          📥 Export CSV
+        </button>
+        <button class="btn btn--danger btn--sm" onclick="confirmClearHistory()">
+          🗑️ Clear History
+        </button>
+      </div>
+    </div>
+
+    <div class="monitoring-stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total Logged Readings</span>
+        <span class="stat-val" id="stat-total">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Peak Recorded Level</span>
+        <span class="stat-val stat-val--peak" id="stat-peak">-- cm</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Telemetry Feed</span>
+        <span class="stat-val stat-val--live">
+          <span class="pulse-live"></span> Live
+        </span>
+      </div>
+    </div>
+
+    <div class="filter-toolbar">
+      <div class="search-wrap">
+        <input type="text" id="log-search-input" placeholder="Filter by timestamp, depth, or warning..." oninput="filterLogsTable()">
+      </div>
+      <div class="filter-tags">
+        <button class="btn-filter active" data-filter="ALL" onclick="setStatusFilter('ALL', this)">All</button>
+        <button class="btn-filter" data-filter="GREEN" onclick="setStatusFilter('GREEN', this)">Green</button>
+        <button class="btn-filter" data-filter="YELLOW" onclick="setStatusFilter('YELLOW', this)">Yellow</button>
+        <button class="btn-filter" data-filter="RED" onclick="setStatusFilter('RED', this)">Red</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="datatable" id="monitoring-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Timestamp</th>
+            <th>Water Level</th>
+            <th>Flood Depth</th>
+            <th>Warning Status</th>
+            <th>Road Condition</th>
+            <th>Site Location</th>
+          </tr>
+        </thead>
+        <tbody id="monitoring-tbody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot-info">
+    <span><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> WE-WARN &mdash; Water Elevation Web-based Alert and Response Network</span>
+    <span class="sitefoot-sub">Automated Flood Monitoring &middot; HTML/CSS/JS Prototype &middot; San Dionisio, SM Sucat</span>
+  </div>
+  <div class="sitefoot-meta">
+    <span id="foot-clock"></span>
+  </div>
+</footer>
+
+<!-- Floating Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a href="index.html" class="m-nav-item">
+    <i data-lucide="home"></i>
+    <span>Home</span>
+  </a>
+  <a href="dashboard.html" class="m-nav-item">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dash</span>
+  </a>
+  <a href="monitoring.html" class="m-nav-item">
+    <i data-lucide="activity"></i>
+    <span>Logs</span>
+  </a>
+  <a href="admin-login.html" class="m-nav-item" id="m-nav-admin">
+    <i data-lucide="shield-check"></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- Core Scripts -->
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+  let activeStatusFilter = "ALL";
+
+  function renderMonitoringPage() {
+    const history = window.WEWARN_STORE.getHistory(100);
+    const tbody = document.getElementById("monitoring-tbody");
+
+    // Stats
+    document.getElementById("stat-total").textContent = history.length;
+    const peakEl = document.getElementById("stat-peak");
+    if (history.length) {
+      const peak = Math.max(...history.map(r => r.water_level));
+      peakEl.textContent = `${peak.toFixed(1)} cm`;
+    } else {
+      peakEl.textContent = "-- cm";
+    }
+
+    if (!history.length) {
+      tbody.innerHTML = '<tr id="empty-row"><td colspan="7" class="empty">No readings yet. Inject readings or enable simulation mode.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = history.map(row => `
+      <tr data-status="${row.warning_status}">
+        <td data-label="ID" class="mono muted">#${row.id}</td>
+        <td data-label="Timestamp" class="mono">${row.timestamp}</td>
+        <td data-label="Water Level" class="mono font-bold">${Number(row.water_level).toFixed(1)} cm</td>
+        <td data-label="Flood Depth">${row.flood_level}</td>
+        <td data-label="Warning"><span class="badge badge--${row.warning_status.toLowerCase()}">${row.warning_status}</span></td>
+        <td data-label="Road Condition">${row.road_status}</td>
+        <td data-label="Location" class="muted">${row.location}</td>
+      </tr>
+    `).join("");
+
+    filterLogsTable();
+  }
+
+  function filterLogsTable() {
+    const search = (document.getElementById("log-search-input")?.value || "").toLowerCase();
+    const rows = document.querySelectorAll("#monitoring-tbody tr");
+    rows.forEach(r => {
+      if (r.id === "empty-row") return;
+      const status = r.dataset.status;
+      const text = r.textContent.toLowerCase();
+      const matchesSearch = !search || text.includes(search);
+      const matchesFilter = activeStatusFilter === "ALL" || status === activeStatusFilter;
+      r.style.display = matchesSearch && matchesFilter ? "" : "none";
+    });
+  }
+
+  function setStatusFilter(status, btn) {
+    activeStatusFilter = status;
+    document.querySelectorAll(".filter-tags .btn-filter").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    filterLogsTable();
+  }
+
+  function confirmClearHistory() {
+    if (!confirm("Are you sure you want to clear all logged water level readings?")) return;
+    window.WEWARN_STORE.clearHistory();
+    showToast("History cleared successfully.", "info");
+    renderMonitoringPage();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    renderMonitoringPage();
+    window.addEventListener("wewarn:reading", renderMonitoringPage);
+    window.addEventListener("wewarn:data-change", renderMonitoringPage);
+  });
+</script>
+</body>
+</html>
+

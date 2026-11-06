@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login · WE-WARN</title>
+<meta name="description" content="WE-WARN PCDRRMO Administrator Authentication &amp; System Access.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="shortcut icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <i data-lucide="droplets"></i>
+      </span>
+      <span class="brand-text">WE<span class="brand-dash">–</span>WARN</span>
+    </a>
+    <span class="brand-tag">Water Elevation Alert &amp; Response Network</span>
+  </div>
+
+  <nav class="mainnav">
+    <a href="index.html" class="nav-item">
+      <i data-lucide="home" class="nav-icon"></i>
+      <span>Home</span>
+    </a>
+    <a href="dashboard.html" class="nav-item">
+      <i data-lucide="layout-dashboard" class="nav-icon"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="monitoring.html" class="nav-item">
+      <i data-lucide="activity" class="nav-icon"></i>
+      <span>Monitoring</span>
+    </a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="hw-chip" id="hw-chip" title="Hardware / Sensor Connection Status">
+      <span class="hw-pulse"></span>
+      <span id="hw-status-text">Checking...</span>
+    </div>
+
+    <div id="topbar-auth-slot">
+      <a href="admin-login.html" class="admin-login-link" title="Admin Login">
+        <i data-lucide="lock" class="admin-chip-icon"></i>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div id="toast-container" class="toast-container"></div>
+
+<main class="page">
+  <div class="login-page">
+    <div class="login-card animate-rise">
+      <div class="login-logo">
+        <i data-lucide="shield-check" style="width:48px;height:48px;color:var(--accent);"></i>
+      </div>
+      <h1 class="login-title">Admin Access</h1>
+      <p class="login-sub">Sign in to manage warnings, update hotspot statuses, and control the WE-WARN network.</p>
+      
+      <form id="login-form" onsubmit="handleLoginSubmit(event)" class="login-form">
+        <div class="form-group">
+          <label for="username">
+            <i data-lucide="user" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Username
+          </label>
+          <input type="text" id="username" name="username" required placeholder="admin" autocomplete="username" value="admin" autofocus>
+        </div>
+        <div class="form-group">
+          <label for="password">
+            <i data-lucide="lock" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Password
+          </label>
+          <input type="password" id="password" name="password" required placeholder="admin123" value="admin123" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn--primary login-submit-btn">
+          <i data-lucide="log-in" style="width:16px;height:16px;"></i>
+          Sign In to Control Panel
+        </button>
+      </form>
+
+      <div class="login-hint">
+        <i data-lucide="info" style="width:14px;height:14px;"></i>
+        <span>Default prototype credentials: <code>admin</code> / <code>admin123</code></span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot-info">
+    <span><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> WE-WARN &mdash; Water Elevation Web-based Alert and Response Network</span>
+    <span class="sitefoot-sub">Automated Flood Monitoring &middot; HTML/CSS/JS Prototype &middot; San Dionisio, SM Sucat</span>
+  </div>
+  <div class="sitefoot-meta">
+    <span id="foot-clock"></span>
+  </div>
+</footer>
+
+<!-- Floating Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a href="index.html" class="m-nav-item">
+    <i data-lucide="home"></i>
+    <span>Home</span>
+  </a>
+  <a href="dashboard.html" class="m-nav-item">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dash</span>
+  </a>
+  <a href="monitoring.html" class="m-nav-item">
+    <i data-lucide="activity"></i>
+    <span>Logs</span>
+  </a>
+  <a href="admin-login.html" class="m-nav-item" id="m-nav-admin">
+    <i data-lucide="shield-check"></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- Core Scripts -->
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // If already logged in, redirect straight to dashboard
+    if (window.WEWARN_STORE.getCurrentUser()) {
+      window.location.href = "admin-dashboard.html";
+    }
+  });
+
+  function handleLoginSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+
+    const user = window.WEWARN_STORE.login(username, password);
+    if (user) {
+      showToast("Welcome back, " + user.displayName + "!", "success");
+      setTimeout(() => {
+        window.location.href = "admin-dashboard.html";
+      }, 500);
+    } else {
+      showToast("Invalid username or password.", "error");
+    }
+  }
+</script>
+</body>
+</html>
+

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WE-WARN — Water Elevation Web-based Alert and Response Network</title>
+<meta name="description" content="WE-WARN — Water Elevation Web-based Alert and Response Network. Real-time flood monitoring prototype for San Dionisio, Dr. A. Santos Ave. infront of SM Sucat.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="shortcut icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="brand" href="index.html">
+      <span class="brand-mark" aria-hidden="true">
+        <i data-lucide="droplets"></i>
+      </span>
+      <span class="brand-text">WE<span class="brand-dash">–</span>WARN</span>
+    </a>
+    <span class="brand-tag">Water Elevation Alert &amp; Response Network</span>
+  </div>
+
+  <nav class="mainnav">
+    <a href="index.html" class="nav-item">
+      <i data-lucide="home" class="nav-icon"></i>
+      <span>Home</span>
+    </a>
+    <a href="dashboard.html" class="nav-item">
+      <i data-lucide="layout-dashboard" class="nav-icon"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="monitoring.html" class="nav-item">
+      <i data-lucide="activity" class="nav-icon"></i>
+      <span>Monitoring</span>
+    </a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="hw-chip" id="hw-chip" title="Hardware / Sensor Connection Status">
+      <span class="hw-pulse"></span>
+      <span id="hw-status-text">Checking...</span>
+    </div>
+
+    <div id="topbar-auth-slot">
+      <a href="admin-login.html" class="admin-login-link" title="Admin Login">
+        <i data-lucide="lock" class="admin-chip-icon"></i>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div id="toast-container" class="toast-container"></div>
+
+<main class="page">
+  <!-- Hero Landing Section -->
+  <section class="home-hero animate-rise">
+    <div class="home-hero-bg"></div>
+    <div class="home-hero-content">
+      <div class="home-hero-badge">
+        <i data-lucide="shield-check" style="width:14px;height:14px;"></i>
+        <span>San Dionisio &bull; Real-Time Flood Monitoring Prototype</span>
+      </div>
+      <h1 class="home-hero-title">
+        <span class="home-title-accent">WE</span>–WARN
+      </h1>
+      <p class="home-hero-subtitle">Water Elevation Web-based Alert and Response Network</p>
+      <p class="home-hero-desc">
+        A web-based system that continuously monitors the current water level at
+        Dr. A. Santos Ave. infront of SM Sucat, Barangay San Dionisio. It provides real-time water level readings,
+        warning status (Green / Yellow / Red), and road passability information to help residents make safer travel
+        and evacuation decisions during heavy rainfall and flooding.
+      </p>
+      <div class="home-hero-actions">
+        <a href="dashboard.html" class="btn btn--primary btn--lg">
+          <i data-lucide="layout-dashboard" style="width:18px;height:18px;"></i>
+          Open Live Dashboard
+        </a>
+        <a href="monitoring.html" class="btn btn--outline btn--lg">
+          <i data-lucide="activity" style="width:18px;height:18px;"></i>
+          View Monitoring Logs
+        </a>
+      </div>
+    </div>
+
+    <!-- Live Station Status -->
+    <div class="home-live-stats animate-rise-delay-1">
+      <div class="home-stat">
+        <div class="home-stat-icon home-stat-icon--blue">
+          <i data-lucide="map-pin" style="width:20px;height:20px;"></i>
+        </div>
+        <div>
+          <span class="home-stat-num" style="font-size:1rem;">San Dionisio</span>
+          <span class="home-stat-label">Monitored Location</span>
+        </div>
+      </div>
+      <div class="home-stat">
+        <div class="home-stat-icon home-stat-icon--green">
+          <i data-lucide="activity" style="width:20px;height:20px;"></i>
+        </div>
+        <div>
+          <span class="home-stat-num" id="stat-current-level">-- cm</span>
+          <span class="home-stat-label">Current Water Level</span>
+        </div>
+      </div>
+      <div class="home-stat">
+        <div class="home-stat-icon home-stat-icon--amber">
+          <i data-lucide="alert-triangle" style="width:20px;height:20px;"></i>
+        </div>
+        <div>
+          <span class="home-stat-num" id="stat-warning-status">--</span>
+          <span class="home-stat-label">Warning Status</span>
+        </div>
+      </div>
+      <div class="home-stat">
+        <div class="home-stat-icon home-stat-icon--green">
+          <i data-lucide="car" style="width:20px;height:20px;"></i>
+        </div>
+        <div>
+          <span class="home-stat-num" id="stat-road-status" style="font-size:0.9rem;">--</span>
+          <span class="home-stat-label">Road Passability</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Quick Navigation Feature Cards -->
+  <section class="panel animate-rise-delay-2" style="margin-top: 32px;">
+    <h2 class="section-title-icon" style="margin-bottom: 20px;">
+      <i data-lucide="compass" style="width:24px;height:24px;color:var(--accent);"></i>
+      Explore WE-WARN Prototype Capabilities
+    </h2>
+    <div class="guide-grid">
+      <a href="dashboard.html" class="guide-card guide-card--green" style="display:block; text-decoration:none;">
+        <div class="guide-card-icon">
+          <i data-lucide="activity" style="width:28px;height:28px;color:var(--green);"></i>
+        </div>
+        <h2>Live Telemetry &amp; Gauge</h2>
+        <p>Interactive water depth tube gauge, 20-point SVG sparkline trend, and threshold testing simulation controls.</p>
+        <span style="color:var(--green); font-weight:600; font-size:0.85rem;">Launch Dashboard &rarr;</span>
+      </a>
+
+      <a href="monitoring.html" class="guide-card guide-card--yellow" style="display:block; text-decoration:none;">
+        <div class="guide-card-icon">
+          <i data-lucide="table" style="width:28px;height:28px;color:var(--yellow);"></i>
+        </div>
+        <h2>Monitoring &amp; Telemetry Logs</h2>
+        <p>Continuous time-series sensor data with search, filter, and CSV export for Dr. A. Santos Ave. infront of SM Sucat.</p>
+        <span style="color:var(--yellow); font-weight:600; font-size:0.85rem;">View Monitoring Logs &rarr;</span>
+      </a>
+
+    </div>
+  </section>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot-info">
+    <span><i data-lucide="droplets" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> WE-WARN &mdash; Water Elevation Web-based Alert and Response Network</span>
+    <span class="sitefoot-sub">Automated Flood Monitoring &middot; HTML/CSS/JS Prototype &middot; San Dionisio, SM Sucat</span>
+  </div>
+  <div class="sitefoot-meta">
+    <span id="foot-clock"></span>
+  </div>
+</footer>
+
+<!-- Floating Mobile Bottom Navigation -->
+<nav class="mobile-bottom-nav">
+  <a href="index.html" class="m-nav-item">
+    <i data-lucide="home"></i>
+    <span>Home</span>
+  </a>
+  <a href="dashboard.html" class="m-nav-item">
+    <i data-lucide="layout-dashboard"></i>
+    <span>Dash</span>
+  </a>
+  <a href="monitoring.html" class="m-nav-item">
+    <i data-lucide="activity"></i>
+    <span>Logs</span>
+  </a>
+  <a href="admin-login.html" class="m-nav-item" id="m-nav-admin">
+    <i data-lucide="shield-check"></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- Core Scripts -->
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+  function renderHomeStats() {
+    const reading = window.WEWARN_STORE.getLatestReading(window.WEWARN_CONFIG.LOCATION_NAME);
+    if (reading) {
+      document.getElementById("stat-current-level").textContent = Number(reading.water_level).toFixed(1) + " cm";
+      document.getElementById("stat-warning-status").textContent = reading.warning_status;
+      document.getElementById("stat-road-status").textContent = reading.road_status;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    renderHomeStats();
+    window.addEventListener("wewarn:data-change", renderHomeStats);
+    window.addEventListener("wewarn:reading", renderHomeStats);
+  });
+</script>
+</body>
+</html>
+
