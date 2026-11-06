@@ -250,6 +250,7 @@
     renderWarningsTicker();
     updateNavBadge();
     updateAuthHeader();
+    renderPersistentTopEmergencyBanner();
   });
 
   window.addEventListener("wewarn:reading", (e) => {
@@ -257,6 +258,416 @@
     if (reading) {
       handleAudioAlert(reading.warning_status);
     }
+  });
+
+  // ============================================================
+  // REAL-TIME EMERGENCY BROADCAST & NOTIFICATION SYSTEM
+  // ============================================================
+  let titleFlashInterval = null;
+  let originalDocumentTitle = document.title;
+  let currentActiveModalAlertId = null;
+
+  function startTitleFlash(text) {
+    if (titleFlashInterval) clearInterval(titleFlashInterval);
+    let flag = false;
+    titleFlashInterval = setInterval(() => {
+      document.title = flag ? `🚨 [ALERT] ${text.slice(0, 24)}...` : `⚠️ WE-WARN EMERGENCY`;
+      flag = !flag;
+    }, 1000);
+  }
+
+  function stopTitleFlash() {
+    if (titleFlashInterval) {
+      clearInterval(titleFlashInterval);
+      titleFlashInterval = null;
+      document.title = originalDocumentTitle;
+    }
+  }
+
+  function playEmergencyAlarm(severity = "critical", repeats = 3) {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+
+      const now = audioCtx.currentTime;
+      if (severity === "critical") {
+        // Urgent alternating dual-tone siren
+        for (let i = 0; i < repeats; i++) {
+          const t = now + i * 0.75;
+          const osc1 = audioCtx.createOscillator();
+          const gain1 = audioCtx.createGain();
+          osc1.type = "sawtooth";
+          osc1.frequency.setValueAtTime(960, t);
+          osc1.frequency.exponentialRampToValueAtTime(1080, t + 0.32);
+          gain1.gain.setValueAtTime(0.24, t);
+          gain1.gain.linearRampToValueAtTime(0.01, t + 0.35);
+          osc1.connect(gain1);
+          gain1.connect(audioCtx.destination);
+          osc1.start(t);
+          osc1.stop(t + 0.35);
+
+          const osc2 = audioCtx.createOscillator();
+          const gain2 = audioCtx.createGain();
+          osc2.type = "sawtooth";
+          osc2.frequency.setValueAtTime(680, t + 0.38);
+          osc2.frequency.exponentialRampToValueAtTime(740, t + 0.7);
+          gain2.gain.setValueAtTime(0.24, t + 0.38);
+          gain2.gain.linearRampToValueAtTime(0.01, t + 0.73);
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.start(t + 0.38);
+          osc2.stop(t + 0.73);
+        }
+      } else if (severity === "warning") {
+        // High attention double pulse
+        for (let i = 0; i < repeats; i++) {
+          const t = now + i * 0.55;
+          [0, 0.2].forEach((offset) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(840, t + offset);
+            gain.gain.setValueAtTime(0.2, t + offset);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + offset + 0.16);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t + offset);
+            osc.stop(t + offset + 0.16);
+          });
+        }
+      } else if (severity === "all-clear") {
+        // Ascending major chord (All-Clear)
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const t = now + idx * 0.16;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.005, t + 0.42);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t);
+          osc.stop(t + 0.42);
+        });
+      } else {
+        // Advisory pleasant double chime
+        [587.33, 880].forEach((freq, idx) => {
+          const t = now + idx * 0.22;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.005, t + 0.38);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(t);
+          osc.stop(t + 0.38);
+        });
+      }
+    } catch (e) {
+      console.warn("Audio alarm blocked or failed:", e);
+    }
+  }
+
+  function sendBrowserNotification(alert) {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      try {
+        const n = new Notification(`🚨 WE-WARN ALERT: ${alert.title}`, {
+          body: `${alert.message}\n📍 ${alert.location}`,
+          icon: "favicon.svg",
+          badge: "favicon.svg",
+          tag: "wewarn-alert-" + alert.id,
+          renotify: true
+        });
+        n.onclick = function () {
+          window.focus();
+          showEmergencyModal(alert, false);
+        };
+      } catch (e) {}
+    } else if (Notification.permission === "default") {
+      try {
+        Notification.requestPermission();
+      } catch (e) {}
+    }
+  }
+
+  // Render Persistent Top Emergency Strip
+  function renderPersistentTopEmergencyBanner() {
+    let banner = document.getElementById("wewarn-top-emergency-banner");
+    const active = window.WEWARN_STORE.getActiveBroadcast();
+
+    if (!active) {
+      if (banner) banner.remove();
+      return;
+    }
+
+    const sev = (active.severity || "critical").toLowerCase();
+    let iconName = sev === "critical" ? "siren" : sev === "warning" ? "alert-triangle" : "info";
+    let tagText = sev === "critical" ? "CRITICAL EMERGENCY BROADCAST" : sev === "warning" ? "FLOOD WARNING ADVISORY" : "PUBLIC FLOOD ADVISORY";
+
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "wewarn-top-emergency-banner";
+      const topbar = document.querySelector(".topbar");
+      if (topbar && topbar.parentNode) {
+        topbar.parentNode.insertBefore(banner, topbar.nextSibling);
+      } else {
+        document.body.prepend(banner);
+      }
+    }
+
+    banner.className = `top-emergency-banner top-emergency-banner--${sev} animate-rise`;
+    banner.innerHTML = `
+      <div class="top-emergency-inner">
+        <div class="top-emergency-left">
+          <span class="emergency-siren-badge">
+            <i data-lucide="${iconName}"></i>
+          </span>
+          <div class="top-emergency-text">
+            <div class="top-emergency-tag">${tagText} &bull; ${active.created_at}</div>
+            <strong class="top-emergency-title">${active.title}</strong>
+            <span class="top-emergency-loc">&mdash; ${active.location}</span>
+          </div>
+        </div>
+        <div class="top-emergency-actions">
+          <button class="btn btn--sm banner-btn-details" id="btn-banner-view-advisory">
+            <i data-lucide="eye"></i>
+            <span>View Advisory</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    const viewBtn = document.getElementById("btn-banner-view-advisory");
+    if (viewBtn) {
+      viewBtn.onclick = () => {
+        showEmergencyModal(active, false);
+      };
+    }
+
+    if (typeof lucide !== "undefined") lucide.createIcons();
+  }
+
+  // Render Emergency Modal Dialog
+  function showEmergencyModal(alert, triggerEffects = true) {
+    currentActiveModalAlertId = alert.id;
+    let modal = document.getElementById("wewarn-emergency-modal");
+    if (modal) modal.remove();
+
+    const sev = (alert.severity || "critical").toLowerCase();
+    let badgeText = "CRITICAL EMERGENCY BROADCAST";
+    let iconName = "siren";
+    if (sev === "warning") {
+      badgeText = "FLOOD WARNING ADVISORY";
+      iconName = "alert-triangle";
+    } else if (sev === "advisory") {
+      badgeText = "PUBLIC INFORMATION ADVISORY";
+      iconName = "info";
+    }
+
+    // Telemetry current reading preview
+    let currentReading = { water_level: 25.0, warning_status: "YELLOW", road_status: "Passable" };
+    try {
+      currentReading = window.WEWARN_STORE.getLatestReading(window.WEWARN_CONFIG.LOCATION_NAME) || currentReading;
+    } catch (e) {}
+
+    modal = document.createElement("div");
+    modal.id = "wewarn-emergency-modal";
+    modal.className = "emergency-modal-backdrop";
+    modal.innerHTML = `
+      <div class="emergency-modal-card emergency-modal-card--${sev} animate-rise" role="dialog" aria-modal="true">
+        <div class="emergency-modal-header">
+          <div class="emergency-badge emergency-badge--${sev}">
+            <span class="pulse-beacon"></span>
+            <span>${badgeText}</span>
+          </div>
+          <button class="emergency-modal-close" id="btn-close-emergency-modal" title="Dismiss" aria-label="Dismiss">&times;</button>
+        </div>
+
+        <div class="emergency-modal-body">
+          <div class="emergency-beacon-row">
+            <div class="emergency-icon-circle emergency-icon-circle--${sev}">
+              <i data-lucide="${iconName}"></i>
+            </div>
+            <div>
+              <span class="mono muted font-sm">ISSUED BY ${alert.created_by.toUpperCase()} &bull; ${alert.created_at}</span>
+              <h2 class="emergency-modal-title">${alert.title}</h2>
+            </div>
+          </div>
+
+          <div class="emergency-location-strip">
+            <i data-lucide="map-pin"></i>
+            <strong>Target Location:</strong>
+            <span>${alert.location}</span>
+          </div>
+
+          <div class="emergency-modal-text">
+            ${alert.message || "Water level condition requires immediate public vigilance. Please monitor official advisories and execute safety precautions."}
+          </div>
+
+          <div class="emergency-telemetry-box">
+            <div class="telemetry-box-title">
+              <i data-lucide="activity"></i>
+              <span>Live Monitored Telemetry Snapshot</span>
+            </div>
+            <div class="telemetry-box-grid">
+              <div class="telemetry-box-item">
+                <span class="mono muted">Water Elevation</span>
+                <strong>${Number(currentReading.water_level).toFixed(1)} cm</strong>
+              </div>
+              <div class="telemetry-box-item">
+                <span class="mono muted">Alarm Status</span>
+                <strong class="color-${currentReading.warning_status.toLowerCase()}">${currentReading.warning_status}</strong>
+              </div>
+              <div class="telemetry-box-item">
+                <span class="mono muted">Road Status</span>
+                <strong>${currentReading.road_status}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="emergency-modal-footer">
+          <button class="btn btn--outline" id="btn-modal-dismiss">
+            <i data-lucide="check"></i>
+            <span>Acknowledge &amp; Dismiss</span>
+          </button>
+          <a href="dashboard.html" class="btn btn--primary" id="btn-modal-godash">
+            <i data-lucide="activity"></i>
+            <span>Open Live Dashboard</span>
+          </a>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeBtn = document.getElementById("btn-close-emergency-modal");
+    if (closeBtn) closeBtn.onclick = closeEmergencyModal;
+    const dismissBtn = document.getElementById("btn-modal-dismiss");
+    if (dismissBtn) dismissBtn.onclick = closeEmergencyModal;
+
+    // Close on backdrop click
+    modal.onclick = (e) => {
+      if (e.target === modal) closeEmergencyModal();
+    };
+
+    if (typeof lucide !== "undefined") lucide.createIcons();
+
+    if (triggerEffects) {
+      if (alert.sound !== false) {
+        playEmergencyAlarm(sev, sev === "critical" ? 4 : 2);
+      }
+      sendBrowserNotification(alert);
+      startTitleFlash(alert.title);
+      showToast(`📢 EMERGENCY BROADCAST: ${alert.title}`, sev === "critical" ? "error" : "info");
+    }
+  }
+
+  function closeEmergencyModal() {
+    const modal = document.getElementById("wewarn-emergency-modal");
+    if (modal) {
+      modal.classList.add("modal-fade-out");
+      setTimeout(() => modal.remove(), 250);
+    }
+    stopTitleFlash();
+  }
+
+  function handleAllClearNotice(note) {
+    stopTitleFlash();
+    playEmergencyAlarm("all-clear", 1);
+
+    // Update persistent top banner into green all-clear then fade
+    const banner = document.getElementById("wewarn-top-emergency-banner");
+    if (banner) {
+      banner.className = "top-emergency-banner top-emergency-banner--allclear animate-rise";
+      banner.innerHTML = `
+        <div class="top-emergency-inner">
+          <div class="top-emergency-left">
+            <span class="emergency-siren-badge" style="background:var(--green); color:#000;">
+              <i data-lucide="check-circle-2"></i>
+            </span>
+            <div class="top-emergency-text">
+              <div class="top-emergency-tag" style="color:var(--green);">🟢 ALL CLEAR &bull; ADVISORY LIFTED</div>
+              <strong class="top-emergency-title">${note || "Flood emergency warning has been lifted. Dr. A. Santos Ave. infront of SM Sucat is clear."}</strong>
+            </div>
+          </div>
+        </div>
+      `;
+      if (typeof lucide !== "undefined") lucide.createIcons();
+      setTimeout(() => {
+        if (banner) banner.remove();
+      }, 6000);
+    }
+
+    // If modal open, show all clear
+    const modal = document.getElementById("wewarn-emergency-modal");
+    if (modal) {
+      const card = modal.querySelector(".emergency-modal-card");
+      if (card) {
+        card.className = "emergency-modal-card emergency-modal-card--allclear";
+        card.innerHTML = `
+          <div class="emergency-modal-header">
+            <div class="emergency-badge emergency-badge--green">
+              <span>ALL CLEAR NOTICE</span>
+            </div>
+            <button class="emergency-modal-close" onclick="window.wewarnCloseModal()">&times;</button>
+          </div>
+          <div class="emergency-modal-body" style="text-align:center; padding:24px 16px;">
+            <div class="emergency-icon-circle emergency-icon-circle--green" style="margin:0 auto 16px;">
+              <i data-lucide="check-circle-2"></i>
+            </div>
+            <h2 class="emergency-modal-title" style="color:var(--green);">Flood Advisory Lifted</h2>
+            <p class="emergency-modal-text">${note || "Flood waters have subsided. Monitored road sections along Dr. A. Santos Ave. infront of SM Sucat are now passable."}</p>
+          </div>
+          <div class="emergency-modal-footer" style="justify-content:center;">
+            <button class="btn btn--primary btn--green" onclick="window.wewarnCloseModal()">Close</button>
+          </div>
+        `;
+        if (typeof lucide !== "undefined") lucide.createIcons();
+      }
+      setTimeout(closeEmergencyModal, 4500);
+    }
+
+    showToast("🟢 Flood warning lifted: Area is All Clear.", "success");
+  }
+
+  // Setup Event Listeners for Emergency Broadcasts
+  window.addEventListener("wewarn:emergency-alert", (e) => {
+    const alert = e.detail;
+    if (alert) {
+      showEmergencyModal(alert, true);
+      renderPersistentTopEmergencyBanner();
+    }
+  });
+
+  window.addEventListener("wewarn:emergency-alert-cleared", (e) => {
+    const note = e.detail ? e.detail.note : null;
+    handleAllClearNotice(note);
+  });
+
+  // Expose helpers globally
+  window.wewarnShowEmergencyModal = showEmergencyModal;
+  window.wewarnCloseModal = closeEmergencyModal;
+  window.wewarnShowActiveModal = () => {
+    const active = window.WEWARN_STORE.getActiveBroadcast();
+    if (active) showEmergencyModal(active, false);
+  };
+  window.wewarnPlayEmergencyAlarm = playEmergencyAlarm;
+  window.wewarnRequestNotificationPermission = () => {
+    if ("Notification" in window) {
+      Notification.requestPermission().then((res) => {
+        showToast(res === "granted" ? "Browser notifications enabled!" : "Notifications declined.", "info");
+      });
+    }
+  };
+
+  // Check on DOMContentLoaded
+  document.addEventListener("DOMContentLoaded", () => {
+    renderPersistentTopEmergencyBanner();
   });
 })();
 
