@@ -306,6 +306,100 @@
       return newWarning;
     },
 
+    // --- Real-time Emergency Broadcast System ---
+    getActiveBroadcast: function () {
+      return getStorage("active_broadcast", null);
+    },
+
+    broadcastAlert: function (data) {
+      const currentUser = this.getCurrentUser();
+      const adminName = currentUser ? currentUser.displayName : "PCDRRMO Command Center";
+      const now = formatTimestamp();
+      const id = Date.now();
+
+      const alertPayload = {
+        id: id,
+        title: (data.title || "EMERGENCY FLOOD ALERT").trim(),
+        message: (data.message || "").trim(),
+        severity: (data.severity || "critical").toLowerCase(), // critical, warning, advisory
+        location: data.location || window.WEWARN_CONFIG.LOCATION_NAME || "San Dionisio — Dr. A. Santos Ave. infront of SM Sucat",
+        barangay: "San Dionisio",
+        sound: data.sound !== false,
+        created_by: adminName,
+        created_at: now,
+        is_active: true
+      };
+
+      // 1. Store active broadcast
+      setStorage("active_broadcast", alertPayload);
+
+      // 2. Also register in general warnings log
+      this.addWarning(
+        alertPayload.title,
+        alertPayload.message,
+        alertPayload.severity === "critical" ? "critical" : alertPayload.severity === "warning" ? "warning" : "info",
+        adminName
+      );
+
+      // 3. Save broadcast history
+      const history = getStorage("broadcast_history", []);
+      history.unshift(alertPayload);
+      if (history.length > 20) history.pop();
+      setStorage("broadcast_history", history);
+
+      // 4. Update sync ping for standard storage event fallback
+      try {
+        localStorage.setItem(STORE_KEY_PREFIX + "alert_broadcast_ping", JSON.stringify({ id: id, timestamp: Date.now() }));
+      } catch (e) {}
+
+      // 5. BroadcastChannel for instant cross-tab delivery
+      if (window._wewarnAlertChannel) {
+        try {
+          window._wewarnAlertChannel.postMessage({ type: "EMERGENCY_ALERT", alert: alertPayload });
+        } catch (e) {}
+      }
+
+      // 6. Local event
+      window.dispatchEvent(new CustomEvent("wewarn:emergency-alert", { detail: alertPayload }));
+      this.emitChange("emergency_broadcast", alertPayload);
+
+      return alertPayload;
+    },
+
+    clearActiveBroadcast: function (note) {
+      const active = this.getActiveBroadcast();
+      if (!active) return false;
+
+      const clearTime = formatTimestamp();
+      const clearNote = note || "Emergency alert cleared by PCDRRMO Command Center. Area is all clear.";
+
+      setStorage("active_broadcast", null);
+
+      // Update sync ping
+      try {
+        localStorage.setItem(STORE_KEY_PREFIX + "alert_clear_ping", JSON.stringify({ id: active.id, note: clearNote, timestamp: Date.now() }));
+      } catch (e) {}
+
+      // BroadcastChannel notify
+      if (window._wewarnAlertChannel) {
+        try {
+          window._wewarnAlertChannel.postMessage({ type: "ALERT_CLEARED", id: active.id, note: clearNote, timestamp: clearTime });
+        } catch (e) {}
+      }
+
+      // Local event
+      window.dispatchEvent(new CustomEvent("wewarn:emergency-alert-cleared", {
+        detail: { id: active.id, note: clearNote, timestamp: clearTime }
+      }));
+      this.emitChange("emergency_broadcast_cleared", { id: active.id, note: clearNote });
+
+      return true;
+    },
+
+    getBroadcastHistory: function () {
+      return getStorage("broadcast_history", []);
+    },
+
     updateWarning: function (id, data) {
       const warnings = getStorage("warnings", []);
       const idx = warnings.findIndex((w) => w.id === parseInt(id));
@@ -406,13 +500,44 @@
     }
   };
 
+  // Real-time Cross-Tab BroadcastChannel setup
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      window._wewarnAlertChannel = new BroadcastChannel("wewarn_alert_channel");
+      window._wewarnAlertChannel.onmessage = function (event) {
+        if (!event.data) return;
+        if (event.data.type === "EMERGENCY_ALERT") {
+          window.dispatchEvent(new CustomEvent("wewarn:emergency-alert", { detail: event.data.alert }));
+        } else if (event.data.type === "ALERT_CLEARED") {
+          window.dispatchEvent(new CustomEvent("wewarn:emergency-alert-cleared", { detail: event.data }));
+        }
+      };
+    }
+  } catch (err) {
+    console.warn("BroadcastChannel not available:", err);
+  }
+
   // Auto-initialize on load
   WEWARN_STORE.init();
   window.WEWARN_STORE = WEWARN_STORE;
 
-  // Cross-tab synchronization
+  // Cross-tab synchronization via standard localStorage storage event
   window.addEventListener("storage", function (e) {
     if (e.key && e.key.startsWith(STORE_KEY_PREFIX)) {
+      if (e.key === STORE_KEY_PREFIX + "alert_broadcast_ping") {
+        const active = WEWARN_STORE.getActiveBroadcast();
+        if (active) {
+          window.dispatchEvent(new CustomEvent("wewarn:emergency-alert", { detail: active }));
+        }
+      } else if (e.key === STORE_KEY_PREFIX + "alert_clear_ping") {
+        try {
+          const clearData = e.newValue ? JSON.parse(e.newValue) : {};
+          window.dispatchEvent(new CustomEvent("wewarn:emergency-alert-cleared", { detail: clearData }));
+        } catch (err) {
+          window.dispatchEvent(new CustomEvent("wewarn:emergency-alert-cleared", { detail: {} }));
+        }
+      }
+
       window.dispatchEvent(
         new CustomEvent("wewarn:data-change", {
           detail: { type: "cross_tab_sync", key: e.key }
