@@ -37,12 +37,44 @@
   }
 
   const WEWARN_STORE = {
+    backendConnected: false,
+    backendInfo: { engine: "Dual-Mode Engine", file: "wewarn_storage.sqlite" },
+
     init: function () {
       const isInit = localStorage.getItem(STORE_KEY_PREFIX + "initialized_v3");
       if (!isInit) {
         this.resetToDefaults(false);
         localStorage.setItem(STORE_KEY_PREFIX + "initialized_v3", "true");
       }
+      if (!getStorage("users", null)) {
+        setStorage("users", window.WEWARN_CONFIG.DEFAULT_USERS || []);
+      }
+      // Non-blocking probe to SQLite backend (if app.py is running)
+      this.checkBackendStatus();
+    },
+
+    checkBackendStatus: async function () {
+      try {
+        if (typeof window.fetch === "undefined" || window.location.protocol === "file:") {
+          this.backendConnected = false;
+          return false;
+        }
+        const res = await fetch("/api/health", { method: "GET", cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          this.backendConnected = true;
+          this.backendInfo = {
+            engine: data.engine || "SQLite 3",
+            file: data.database_file || "database/wewarn.db",
+            tables: data.tables || {}
+          };
+          this.emitChange("backend_connected", this.backendInfo);
+          return true;
+        }
+      } catch (err) {
+        this.backendConnected = false;
+      }
+      return false;
     },
 
     resetToDefaults: function (notify = true) {
@@ -73,6 +105,9 @@
 
       // 6. Simulation Mode Flag
       setStorage("sim_mode", false);
+
+      // 7. Registered Users
+      setStorage("users", window.WEWARN_CONFIG.DEFAULT_USERS || []);
 
       if (notify) {
         this.emitChange("reset", null);
@@ -175,6 +210,23 @@
       }
       setStorage("readings", readings);
 
+      // Async sync to SQLite backend if connected
+      if (this.backendConnected) {
+        try {
+          fetch("/api/readings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              water_level: newReading.water_level,
+              flood_level: newReading.flood_level,
+              warning_status: newReading.warning_status,
+              road_status: newReading.road_status,
+              location: newReading.location
+            })
+          }).catch(() => {});
+        } catch (e) {}
+      }
+
       window.dispatchEvent(new CustomEvent("wewarn:reading", { detail: newReading }));
       this.emitChange("readings", newReading);
       return newReading;
@@ -182,6 +234,11 @@
 
     clearHistory: function () {
       setStorage("readings", []);
+      if (this.backendConnected) {
+        try {
+          fetch("/api/readings", { method: "DELETE" }).catch(() => {});
+        } catch (e) {}
+      }
       this.emitChange("readings_cleared", null);
       return true;
     },
@@ -363,6 +420,24 @@
       window.dispatchEvent(new CustomEvent("wewarn:emergency-alert", { detail: alertPayload }));
       this.emitChange("emergency_broadcast", alertPayload);
 
+      // 7. Async sync to SQLite backend if connected
+      if (this.backendConnected) {
+        try {
+          fetch("/api/broadcast", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: alertPayload.title,
+              message: alertPayload.message,
+              severity: alertPayload.severity,
+              location: alertPayload.location,
+              sound: alertPayload.sound ? 1 : 0,
+              created_by: adminName
+            })
+          }).catch(() => {});
+        } catch (e) {}
+      }
+
       return alertPayload;
     },
 
@@ -374,6 +449,13 @@
       const clearNote = note || "Emergency alert cleared by PCDRRMO Command Center. Area is all clear.";
 
       setStorage("active_broadcast", null);
+
+      // Async sync to SQLite backend if connected
+      if (this.backendConnected) {
+        try {
+          fetch("/api/broadcast/clear", { method: "POST" }).catch(() => {});
+        } catch (e) {}
+      }
 
       // Update sync ping
       try {
@@ -428,23 +510,111 @@
       return false;
     },
 
-    // --- Admin Auth ---
+    // --- User & Admin Authentication ---
     getCurrentUser: function () {
       return getStorage("auth", null);
     },
 
+    isLoggedIn: function () {
+      return Boolean(this.getCurrentUser());
+    },
+
+    isAdmin: function () {
+      const u = this.getCurrentUser();
+      return Boolean(u && u.role === "admin");
+    },
+
+    isResident: function () {
+      const u = this.getCurrentUser();
+      return Boolean(u && u.role === "user");
+    },
+
+    getUsers: function () {
+      return getStorage("users", window.WEWARN_CONFIG.DEFAULT_USERS || []);
+    },
+
+    registerUser: function (userData) {
+      if (!userData || !userData.username || !userData.password) {
+        return { success: false, message: "Username and password are required." };
+      }
+      const username = userData.username.trim();
+      const users = this.getUsers();
+      if (users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+        return { success: false, message: "Username already exists. Please choose another." };
+      }
+      const newUser = {
+        username: username,
+        password: userData.password,
+        displayName: (userData.displayName || username).trim(),
+        phone: (userData.phone || "").trim(),
+        barangay: (userData.barangay || "San Dionisio").trim(),
+        role: "user",
+        created_at: formatTimestamp()
+      };
+      users.push(newUser);
+      setStorage("users", users);
+
+      const sessionUser = {
+        username: newUser.username,
+        displayName: newUser.displayName,
+        role: newUser.role,
+        barangay: newUser.barangay
+      };
+      setStorage("auth", sessionUser);
+      this.emitChange("auth", sessionUser);
+
+      // Async sync to SQLite backend if connected
+      if (this.backendConnected) {
+        try {
+          fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: newUser.username,
+              password: newUser.password,
+              displayName: newUser.displayName,
+              barangay: newUser.barangay,
+              phone: newUser.phone
+            })
+          }).catch(() => {});
+        } catch (e) {}
+      }
+
+      return { success: true, user: sessionUser };
+    },
+
     login: function (username, password) {
+      if (!username || !password) return null;
+      const cleanUser = username.trim().toLowerCase();
+
+      // 1. Check Admin Account (Alternative discreet admin access)
       const defaultAdmin = window.WEWARN_CONFIG.ADMIN_DEFAULT;
-      if (username === defaultAdmin.username && password === defaultAdmin.password) {
-        const user = {
+      if (cleanUser === defaultAdmin.username.toLowerCase() && password === defaultAdmin.password) {
+        const adminUser = {
           username: defaultAdmin.username,
           displayName: defaultAdmin.displayName,
           role: defaultAdmin.role
         };
-        setStorage("auth", user);
-        this.emitChange("auth", user);
-        return user;
+        setStorage("auth", adminUser);
+        this.emitChange("auth", adminUser);
+        return adminUser;
       }
+
+      // 2. Check Registered Resident Accounts
+      const users = this.getUsers();
+      const matched = users.find((u) => u.username.toLowerCase() === cleanUser && u.password === password);
+      if (matched) {
+        const userSession = {
+          username: matched.username,
+          displayName: matched.displayName,
+          role: matched.role || "user",
+          barangay: matched.barangay || "San Dionisio"
+        };
+        setStorage("auth", userSession);
+        this.emitChange("auth", userSession);
+        return userSession;
+      }
+
       return null;
     },
 
@@ -488,6 +658,214 @@
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    },
+
+    // --- Database Inspection, DDL/DML Export & Management ---
+    getDatabaseStatus: function () {
+      const stats = {
+        users: (this.getUsers() || []).length,
+        readings: (getStorage("readings", []) || []).length,
+        monitored_areas: (this.getMonitoredAreas() || []).length,
+        broadcasts: (this.getBroadcastHistory() || []).length
+      };
+
+      return {
+        connected: this.backendConnected,
+        engine: this.backendConnected ? "SQLite 3 (database/wewarn.db)" : "Dual-Mode In-Memory & LocalStorage SQL Engine",
+        mode: this.backendConnected ? "sqlite" : "client",
+        file: this.backendConnected ? "database/wewarn.db" : "wewarn_storage.sqlite",
+        tables: stats
+      };
+    },
+
+    getTableData: async function (tableName) {
+      if (this.backendConnected) {
+        try {
+          const res = await fetch(`/api/db/table/${encodeURIComponent(tableName)}?limit=100`);
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (e) {
+          console.warn("Backend table fetch failed, using local store:", e);
+        }
+      }
+
+      // Local store fallback
+      if (tableName === "users") {
+        return (this.getUsers() || []).map((u, i) => ({
+          id: u.id || i + 1,
+          username: u.username,
+          display_name: u.displayName || u.username,
+          role: u.role || "user",
+          barangay: u.barangay || "San Dionisio",
+          phone: u.phone || "",
+          created_at: u.created_at || "2026-01-01 00:00:00"
+        }));
+      } else if (tableName === "readings") {
+        return (this.getHistory(100) || []).map((r) => ({
+          id: r.id,
+          water_level: r.water_level,
+          flood_level: r.flood_level,
+          warning_status: r.warning_status,
+          road_status: r.road_status,
+          location: r.location,
+          timestamp: r.timestamp
+        }));
+      } else if (tableName === "monitored_areas") {
+        return this.getMonitoredAreas() || [];
+      } else if (tableName === "broadcasts") {
+        return this.getBroadcastHistory() || [];
+      }
+      return [];
+    },
+
+    exportSqlDump: function () {
+      const users = this.getUsers() || [];
+      const areas = this.getMonitoredAreas() || [];
+      const readings = this.getHistory(1000) || [];
+      const broadcasts = this.getBroadcastHistory() || [];
+
+      const escapeSql = (str) => String(str || "").replace(/'/g, "''");
+
+      let sql = [
+        "-- ===========================================================",
+        "-- WE-WARN Database SQL Dump",
+        `-- Generated at: ${formatTimestamp()}`,
+        `-- Engine: ${this.backendConnected ? "SQLite 3" : "Dual-Mode Browser SQLite Engine"}`,
+        "-- Station: San Dionisio - Dr. A. Santos Ave. infront of SM Sucat",
+        "-- ===========================================================\n",
+        "PRAGMA foreign_keys = OFF;",
+        "BEGIN TRANSACTION;\n",
+        "-- Table: users",
+        "DROP TABLE IF EXISTS users;",
+        "CREATE TABLE users (",
+        "    id INTEGER PRIMARY KEY AUTOINCREMENT,",
+        "    username TEXT UNIQUE NOT NULL,",
+        "    password TEXT NOT NULL,",
+        "    display_name TEXT NOT NULL,",
+        "    role TEXT NOT NULL DEFAULT 'user',",
+        "    barangay TEXT DEFAULT 'San Dionisio',",
+        "    phone TEXT DEFAULT '',",
+        "    created_at TEXT NOT NULL",
+        ");"
+      ];
+
+      users.forEach((u, i) => {
+        sql.push(
+          `INSERT INTO users (id, username, password, display_name, role, barangay, phone, created_at) VALUES (${i + 1}, '${escapeSql(u.username)}', '${escapeSql(u.password)}', '${escapeSql(u.displayName || u.username)}', '${escapeSql(u.role || "user")}', '${escapeSql(u.barangay || "San Dionisio")}', '${escapeSql(u.phone || "")}', '${escapeSql(u.created_at || formatTimestamp())}');`
+        );
+      });
+
+      sql.push("\n-- Table: monitored_areas");
+      sql.push("DROP TABLE IF EXISTS monitored_areas;");
+      sql.push("CREATE TABLE monitored_areas (");
+      sql.push("    id INTEGER PRIMARY KEY AUTOINCREMENT,");
+      sql.push("    district TEXT NOT NULL,");
+      sql.push("    barangay TEXT NOT NULL,");
+      sql.push("    location TEXT NOT NULL,");
+      sql.push("    flood_level TEXT NOT NULL,");
+      sql.push("    remarks TEXT,");
+      sql.push("    updated_at TEXT NOT NULL");
+      sql.push(");");
+
+      areas.forEach((a) => {
+        sql.push(
+          `INSERT INTO monitored_areas (id, district, barangay, location, flood_level, remarks, updated_at) VALUES (${a.id}, '${escapeSql(a.district)}', '${escapeSql(a.barangay)}', '${escapeSql(a.location)}', '${escapeSql(a.flood_level)}', '${escapeSql(a.remarks || "")}', '${escapeSql(a.updated_at || formatTimestamp())}');`
+        );
+      });
+
+      sql.push("\n-- Table: readings");
+      sql.push("DROP TABLE IF EXISTS readings;");
+      sql.push("CREATE TABLE readings (");
+      sql.push("    id INTEGER PRIMARY KEY AUTOINCREMENT,");
+      sql.push("    water_level REAL NOT NULL,");
+      sql.push("    flood_level TEXT NOT NULL,");
+      sql.push("    warning_status TEXT NOT NULL,");
+      sql.push("    road_status TEXT NOT NULL,");
+      sql.push("    location TEXT NOT NULL,");
+      sql.push("    timestamp TEXT NOT NULL");
+      sql.push(");");
+
+      readings.forEach((r) => {
+        sql.push(
+          `INSERT INTO readings (id, water_level, flood_level, warning_status, road_status, location, timestamp) VALUES (${r.id}, ${parseFloat(r.water_level) || 0.0}, '${escapeSql(r.flood_level)}', '${escapeSql(r.warning_status)}', '${escapeSql(r.road_status)}', '${escapeSql(r.location)}', '${escapeSql(r.timestamp)}');`
+        );
+      });
+
+      sql.push("\n-- Table: broadcasts");
+      sql.push("DROP TABLE IF EXISTS broadcasts;");
+      sql.push("CREATE TABLE broadcasts (");
+      sql.push("    id INTEGER PRIMARY KEY AUTOINCREMENT,");
+      sql.push("    title TEXT NOT NULL,");
+      sql.push("    message TEXT NOT NULL,");
+      sql.push("    severity TEXT NOT NULL DEFAULT 'critical',");
+      sql.push("    location TEXT NOT NULL,");
+      sql.push("    sound INTEGER NOT NULL DEFAULT 1,");
+      sql.push("    is_active INTEGER NOT NULL DEFAULT 1,");
+      sql.push("    created_by TEXT NOT NULL,");
+      sql.push("    created_at TEXT NOT NULL");
+      sql.push(");");
+
+      broadcasts.forEach((b) => {
+        sql.push(
+          `INSERT INTO broadcasts (id, title, message, severity, location, sound, is_active, created_by, created_at) VALUES (${b.id}, '${escapeSql(b.title)}', '${escapeSql(b.message)}', '${escapeSql(b.severity || "critical")}', '${escapeSql(b.location || "Dr. A. Santos Ave. infront of SM Sucat")}', ${b.sound ? 1 : 0}, ${b.is_active ? 1 : 0}, '${escapeSql(b.created_by || "PCDRRMO Admin")}', '${escapeSql(b.created_at)}');`
+        );
+      });
+
+      sql.push("\nCOMMIT;");
+
+      const fullSql = sql.join("\n");
+      const blob = new Blob([fullSql], { type: "application/sql;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "wewarn_database.sql");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return fullSql;
+    },
+
+    exportDbJson: function () {
+      const dump = {
+        metadata: {
+          system: "WE-WARN Flood Monitoring Prototype",
+          generated_at: formatTimestamp(),
+          target_station: "San Dionisio — Dr. A. Santos Ave. infront of SM Sucat",
+          database_engine: this.backendConnected ? "SQLite 3" : "Dual-Mode Browser Storage"
+        },
+        tables: {
+          users: this.getUsers() || [],
+          monitored_areas: this.getMonitoredAreas() || [],
+          readings: this.getHistory(1000) || [],
+          broadcasts: this.getBroadcastHistory() || []
+        }
+      };
+
+      const jsonStr = JSON.stringify(dump, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "wewarn_database.json");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return dump;
+    },
+
+    reseedDatabase: async function () {
+      this.resetToDefaults(true);
+      if (this.backendConnected) {
+        try {
+          await fetch("/api/db/reset", { method: "POST" });
+        } catch (e) {
+          console.warn("Backend reset error:", e);
+        }
+      }
+      return true;
     },
 
     // --- Event Dispatcher ---
